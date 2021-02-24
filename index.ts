@@ -101,6 +101,28 @@ class PromiseArray$<M> extends Monad {
   }
 }
 
+class Record$<M> extends Monad {
+  static return<N>(r: Record<string, N>): Record$<N> {
+    return new Record$(Promise.resolve(r));
+  }
+  constructor(public recordP: Promise<Record<string, M>>) {
+    super();
+  }
+  private async _mapAsync<N>(
+    f: (v: M) => Promise<N>
+  ): Promise<Record<string, N>> {
+    const newRecord = {} as Record<string, N>;
+    const oldRecord = await this.recordP;
+    for (let key of Object.keys(oldRecord)) {
+      newRecord[key] = await f(oldRecord[key]);
+    }
+    return newRecord;
+  }
+  fmapAsync<N>(f: (v: M) => Promise<N>): Record$<N> {
+    return new Record$(this._mapAsync(f));
+  }
+}
+
 class Query$<R extends any, M extends {}> extends Monad {
   static return<N extends {}>(n: N): Query$<void, N> {
     return new Query$(Function$.return(PromiseArray$.return(n)));
@@ -122,17 +144,12 @@ class Query$<R extends any, M extends {}> extends Monad {
     );
   }
   extend(subqueries: Record<string, Query$<M, any>>) {
-    const resolveItem = async (m: M) => {
-      const extension: Record<string, any> = {};
-      for (const key of Object.keys(subqueries)) {
-        extension[key] = await subqueries[key].query$.func(m).promise$array$
-          .promise;
-      }
-      return {
-        ...m,
-        ...extension,
-      };
-    };
+    const resolveItem = async (m: M) => ({
+      ...m,
+      ...(await Record$.return(subqueries).fmapAsync(
+        (q$) => q$.query$.func(m).promise$array$.promise
+      ).recordP),
+    });
     return new Query$(
       new Function$(
         (r: R) =>
@@ -201,17 +218,13 @@ const data3 = [
   },
 ];
 
-const getValue = <R>(r: R) => async <T>(m: T) => {
-  if (m instanceof Functor) return m.getValue(r);
-  if (typeof m === "object") {
-    const res = {} as Record<string, any>;
-    for (const key of Object.keys(m)) {
-      res[key] = await getValue(r)((m as Record<string, any>)[key]);
-    }
-    return res;
-  }
-  return m;
-};
+const getValue = <R>(r: R) => async <T>(m: T): Promise<any> =>
+  m instanceof Functor
+    ? m.getValue(r)
+    : typeof m === "object"
+    ? Record$.return(m as Record<string, unknown>).fmapAsync(getValue(r))
+        .recordP
+    : m;
 
 const query = Query$.returnMultiple(data1);
 

@@ -194,6 +194,50 @@ var PromiseArray$ = /** @class */ (function (_super) {
     };
     return PromiseArray$;
 }(Monad));
+var Record$ = /** @class */ (function (_super) {
+    __extends(Record$, _super);
+    function Record$(recordP) {
+        var _this = _super.call(this) || this;
+        _this.recordP = recordP;
+        return _this;
+    }
+    Record$.return = function (r) {
+        return new Record$(Promise.resolve(r));
+    };
+    Record$.prototype._mapAsync = function (f) {
+        return __awaiter(this, void 0, void 0, function () {
+            var newRecord, oldRecord, _i, _a, key, _b, _c;
+            return __generator(this, function (_d) {
+                switch (_d.label) {
+                    case 0:
+                        newRecord = {};
+                        return [4 /*yield*/, this.recordP];
+                    case 1:
+                        oldRecord = _d.sent();
+                        _i = 0, _a = Object.keys(oldRecord);
+                        _d.label = 2;
+                    case 2:
+                        if (!(_i < _a.length)) return [3 /*break*/, 5];
+                        key = _a[_i];
+                        _b = newRecord;
+                        _c = key;
+                        return [4 /*yield*/, f(oldRecord[key])];
+                    case 3:
+                        _b[_c] = _d.sent();
+                        _d.label = 4;
+                    case 4:
+                        _i++;
+                        return [3 /*break*/, 2];
+                    case 5: return [2 /*return*/, newRecord];
+                }
+            });
+        });
+    };
+    Record$.prototype.fmapAsync = function (f) {
+        return new Record$(this._mapAsync(f));
+    };
+    return Record$;
+}(Monad));
 var Query$ = /** @class */ (function (_super) {
     __extends(Query$, _super);
     function Query$(query$) {
@@ -217,27 +261,13 @@ var Query$ = /** @class */ (function (_super) {
     Query$.prototype.extend = function (subqueries) {
         var _this = this;
         var resolveItem = function (m) { return __awaiter(_this, void 0, void 0, function () {
-            var extension, _i, _a, key, _b, _c;
-            return __generator(this, function (_d) {
-                switch (_d.label) {
+            var _a;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
                     case 0:
-                        extension = {};
-                        _i = 0, _a = Object.keys(subqueries);
-                        _d.label = 1;
-                    case 1:
-                        if (!(_i < _a.length)) return [3 /*break*/, 4];
-                        key = _a[_i];
-                        _b = extension;
-                        _c = key;
-                        return [4 /*yield*/, subqueries[key].query$.func(m).promise$array$
-                                .promise];
-                    case 2:
-                        _b[_c] = _d.sent();
-                        _d.label = 3;
-                    case 3:
-                        _i++;
-                        return [3 /*break*/, 1];
-                    case 4: return [2 /*return*/, __assign(__assign({}, m), extension)];
+                        _a = [__assign({}, m)];
+                        return [4 /*yield*/, Record$.return(subqueries).fmapAsync(function (q$) { return q$.query$.func(m).promise$array$.promise; }).recordP];
+                    case 1: return [2 /*return*/, (__assign.apply(void 0, _a.concat([(_b.sent())])))];
                 }
             });
         }); };
@@ -304,31 +334,13 @@ var data3 = [
     },
 ];
 var getValue = function (r) { return function (m) { return __awaiter(void 0, void 0, void 0, function () {
-    var res, _i, _a, key, _b, _c;
-    return __generator(this, function (_d) {
-        switch (_d.label) {
-            case 0:
-                if (m instanceof Functor)
-                    return [2 /*return*/, m.getValue(r)];
-                if (!(typeof m === "object")) return [3 /*break*/, 5];
-                res = {};
-                _i = 0, _a = Object.keys(m);
-                _d.label = 1;
-            case 1:
-                if (!(_i < _a.length)) return [3 /*break*/, 4];
-                key = _a[_i];
-                _b = res;
-                _c = key;
-                return [4 /*yield*/, getValue(r)(m[key])];
-            case 2:
-                _b[_c] = _d.sent();
-                _d.label = 3;
-            case 3:
-                _i++;
-                return [3 /*break*/, 1];
-            case 4: return [2 /*return*/, res];
-            case 5: return [2 /*return*/, m];
-        }
+    return __generator(this, function (_a) {
+        return [2 /*return*/, m instanceof Functor
+                ? m.getValue(r)
+                : typeof m === "object"
+                    ? Record$.return(m).fmapAsync(getValue(r))
+                        .recordP
+                    : m];
     });
 }); }; };
 var query = Query$.returnMultiple(data1);
