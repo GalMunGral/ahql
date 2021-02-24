@@ -26,8 +26,11 @@ class Function$<R, M> extends Monad {
 }
 
 class Array$<M> extends Monad {
-  static return<N>(m: N): Array$<N> {
-    return new Array$([m]);
+  static return<N>(n: N): Array$<N> {
+    return new Array$([n]);
+  }
+  static returnMultiple<N>(ns: N[]): Array$<N> {
+    return new Array$(ns);
   }
   constructor(public array: Array<M>) {
     super();
@@ -226,30 +229,25 @@ const getValue = <R>(r: R) => async <T>(m: T): Promise<any> =>
         .recordP
     : m;
 
-const query = Query$.returnMultiple(data1);
+const makeQuery = <S, T>(f: (root: S) => T[] | Promise<T[]>): Query$<S, T> => {
+  return new Query$(
+    new Function$((root) => {
+      const res = f(root);
+      return res instanceof Promise
+        ? new PromiseArray$(new Promise$(res).fmap(Array$.returnMultiple))
+        : PromiseArray$.returnMultiple(res);
+    })
+  );
+};
 
-const query2 = new Query$(
-  new Function$((root: any) =>
-    PromiseArray$.returnMultiple(
-      data2.filter((item) => item.name === root.name)
-    )
-  )
-);
-
-const query3 = new Query$(
-  new Function$((root: any) =>
-    PromiseArray$.returnMultiple(data3.filter((item) => item.age === root.age))
-  )
-);
-
-const q = query.extend({
-  a: query2,
-  b: query3,
+const q = Query$.returnMultiple(data1).extend({
+  pathA: makeQuery((root: any) =>
+    data2.filter((item) => item.name === root.name)
+  ),
+  pathB: makeQuery((root: any) =>
+    data3.filter((item) => item.age === root.age)
+  ),
 });
-
-getValue(0)(q)
-  .then((x) => JSON.stringify(x, null, 2))
-  .then(console.log);
 
 getValue(0)(q)
   .then((x) => JSON.stringify(x, null, 2))

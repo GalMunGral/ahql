@@ -111,8 +111,11 @@ var Array$ = /** @class */ (function (_super) {
         _this.array = array;
         return _this;
     }
-    Array$.return = function (m) {
-        return new Array$([m]);
+    Array$.return = function (n) {
+        return new Array$([n]);
+    };
+    Array$.returnMultiple = function (ns) {
+        return new Array$(ns);
     };
     Array$.prototype.fmap = function (f) {
         return new Array$(this.array.map(f));
@@ -343,20 +346,22 @@ var getValue = function (r) { return function (m) { return __awaiter(void 0, voi
                     : m];
     });
 }); }; };
-var query = Query$.returnMultiple(data1);
-var query2 = new Query$(new Function$(function (root) {
-    return PromiseArray$.returnMultiple(data2.filter(function (item) { return item.name === root.name; }));
-}));
-var query3 = new Query$(new Function$(function (root) {
-    return PromiseArray$.returnMultiple(data3.filter(function (item) { return item.age === root.age; }));
-}));
-var q = query.extend({
-    a: query2,
-    b: query3,
+var makeQuery = function (f) {
+    return new Query$(new Function$(function (root) {
+        var res = f(root);
+        return res instanceof Promise
+            ? new PromiseArray$(new Promise$(res).fmap(Array$.returnMultiple))
+            : PromiseArray$.returnMultiple(res);
+    }));
+};
+var q = Query$.returnMultiple(data1).extend({
+    pathA: makeQuery(function (root) {
+        return data2.filter(function (item) { return item.name === root.name; });
+    }),
+    pathB: makeQuery(function (root) {
+        return data3.filter(function (item) { return item.age === root.age; });
+    }),
 });
-getValue(0)(q)
-    .then(function (x) { return JSON.stringify(x, null, 2); })
-    .then(console.log);
 getValue(0)(q)
     .then(function (x) { return JSON.stringify(x, null, 2); })
     .then(console.log);
